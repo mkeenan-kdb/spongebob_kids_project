@@ -19,13 +19,14 @@ const blackholePullFactor = 0.004; // Gravitational pull factor for the black ho
 
 // Game state variables
 let state = {
-  spongebob: { x: 150, y: canvas.height-150, dx: 0, dy: 0 }, // Add dx and dy to track velocity
+  spongebob: { x: 150, y: canvas.height-150, dx: 0, dy: 0 },
   lives: 5,
   score: 0,
   gameOver: false,
   flashing: false,
   flashCount: 0,
-  flashInterval: null
+  flashInterval: null,
+  paused: false // Add paused state
 };
 
 // Obstacle and item definitions
@@ -288,25 +289,35 @@ function moveJellyfish() {
   });
 }
 
-
-
 function gameLoop() {
-  if (!state.gameOver || state.flashing) {
-    updatePosition();
-    moveObstacle();
-    moveJellyfish();
-    renderBackground();
-    renderSpongebob();
-    renderObstacle();
-    renderJellyfish();
-    drawText("Made by MJK, OFSJ, CJSK.", middleX - 150, 50);
-    drawText(`Score: ${state.score}`, 10, 20);
-    drawText(`Lives: ${state.lives}`, canvas.width - 100, 20);
-    checkCollision();
-    checkJellyfishCollection();
+  if (!state.gameOver) {
+    if (state.paused) {
+      renderBackground();
+      renderSpongebob();
+      renderObstacle();
+      renderJellyfish();
+      drawText('Paused', middleX - 80, middleY, '50px Arial', 'red');
+      drawText("Made by MJK, OFSJ, CJSK.", middleX - 150, 50);
+      drawText(`Score: ${state.score}`, 10, 20);
+      drawText(`Lives: ${state.lives}`, canvas.width - 100, 20);
+    } else {
+      updatePosition();
+      moveObstacle();
+      moveJellyfish();
+      renderBackground();
+      renderSpongebob();
+      renderObstacle();
+      renderJellyfish();
+      drawText("Made by MJK, OFSJ, CJSK.", middleX - 150, 50);
+      drawText(`Score: ${state.score}`, 10, 20);
+      drawText(`Lives: ${state.lives}`, canvas.width - 100, 20);
+      checkCollision();
+      checkJellyfishCollection();
+    }
   }
   requestAnimationFrame(gameLoop);
 }
+
 
 // Event listeners for key presses
 let rightPressed = false;
@@ -319,6 +330,9 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowLeft') leftPressed = true;
   if (e.key === 'ArrowUp') upPressed = true;
   if (e.key === 'ArrowDown') downPressed = true;
+  if (e.key === ' ') { // Spacebar to toggle pause
+    state.paused = !state.paused;
+  }
 });
 
 document.addEventListener('keyup', (e) => {
@@ -327,6 +341,7 @@ document.addEventListener('keyup', (e) => {
   if (e.key === 'ArrowUp') upPressed = false;
   if (e.key === 'ArrowDown') downPressed = false;
 });
+
 
 // Start the game
 gameLoop();
