@@ -317,7 +317,7 @@ function gameLoop() {
       renderSpongebob();
       renderObstacle();
       renderJellyfish();
-      drawText("Made by MJK, OFSJ, CJSK.", middleX - 150, 50);
+      drawText("Made by MJK, OFSK, CJSK.", middleX - 150, 50);
       drawText(`Score: ${state.score}`, 10, 20);
       drawText(`Lives: ${state.lives}`, canvas.width - 100, 20);
       checkCollision();
