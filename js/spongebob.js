@@ -12,7 +12,7 @@ const assets = {
 // Game constants
 const middleX = canvas.width / 2;
 const middleY = canvas.height / 2;
-const speed = 10;
+const speed = 8;
 const spongebobSize = 150;
 const numJellyfish = 5; // Number of jellyfish items
 const blackholePullFactor = 0.004; // Gravitational pull factor for the black hole
@@ -33,21 +33,30 @@ const obstacle = {
   x: middleX - 100,
   y: middleY - 100,
   radius: 50,
-  dx: 1, // Horizontal speed of the obstacle
-  dy: 1  // Vertical speed of the obstacle
+  dx: 1,
+  dy: 1,
+  wobbleAmplitude: 6,
+  wobbleFrequency: 0.6,
+  wobbleOffset: Math.random() * 2 * Math.PI,
+  directionChangeInterval: Math.random() * 2000 + 1000,
+  lastDirectionChange: Date.now(),
+  moveTowardsSpeed: 3 // Speed at which the obstacle moves towards SpongeBob
 };
+
 
 const jellyfish = Array.from({ length: numJellyfish }, () => ({
   x: Math.random() * (canvas.width - 50),
   y: Math.random() * (canvas.height - 75),
-  dx: 2 + Math.random() * 2, // Initial speed with random variation
-  dy: 2 + Math.random() * 2, // Initial speed with random variation
-  wobbleAmplitude: 10, // Amplitude of the wobble effect
-  wobbleFrequency: 0.1, // Frequency of the wobble effect
-  wobbleOffset: Math.random() * 2 * Math.PI, // Random initial offset
-  directionChangeInterval: Math.random() * 2000 + 1000, // Random interval for direction change
-  lastDirectionChange: Date.now() // Time of the last direction change
+  dx: 0.5 + Math.random(), // Slower initial speed
+  dy: 0.5 + Math.random(), // Slower initial speed
+  wobbleAmplitude: 10,
+  wobbleFrequency: 0.1,
+  wobbleOffset: Math.random() * 2 * Math.PI,
+  wobbleDirection: Math.random() < 0.5 ? 1 : -1, // Random direction
+  directionChangeInterval: Math.random() * 1000 + 500, // More frequent direction change
+  lastDirectionChange: Date.now()
 }));
+
 
 // Helper functions
 function loadImage(src) {
@@ -212,8 +221,23 @@ function updatePosition() {
 }
 
 function moveObstacle() {
-  obstacle.x += obstacle.dx;
-  obstacle.y += obstacle.dy;
+  const now = Date.now();
+  const { spongebob } = state;
+
+  // Calculate wobble effect
+  obstacle.wobbleOffset += obstacle.wobbleFrequency;
+  const wobbleX = obstacle.wobbleAmplitude * Math.sin(obstacle.wobbleOffset);
+  const wobbleY = obstacle.wobbleAmplitude * Math.cos(obstacle.wobbleOffset);
+
+  // Move towards SpongeBob
+  const dxToSpongebob = spongebob.x + spongebobSize / 2 - obstacle.x;
+  const dyToSpongebob = spongebob.y + spongebobSize / 2 - obstacle.y;
+  const distanceToSpongebob = Math.sqrt(dxToSpongebob * dxToSpongebob + dyToSpongebob * dyToSpongebob);
+  const moveTowardX = (dxToSpongebob / distanceToSpongebob) * obstacle.moveTowardsSpeed;
+  const moveTowardY = (dyToSpongebob / distanceToSpongebob) * obstacle.moveTowardsSpeed;
+
+  obstacle.x += obstacle.dx + wobbleX + moveTowardX;
+  obstacle.y += obstacle.dy + wobbleY + moveTowardY;
 
   // Bounce the obstacle off the edges of the canvas
   if (obstacle.x < obstacle.radius || obstacle.x > canvas.width - obstacle.radius) {
@@ -222,12 +246,22 @@ function moveObstacle() {
   if (obstacle.y < obstacle.radius || obstacle.y > canvas.height - obstacle.radius) {
     obstacle.dy *= -1;
   }
+
+  // Change direction randomly
+  if (now - obstacle.lastDirectionChange > obstacle.directionChangeInterval) {
+    obstacle.dx = 1 + Math.random() * 2; // New random speed
+    obstacle.dy = 1 + Math.random() * 2; // New random speed
+    obstacle.directionChangeInterval = Math.random() * 2000 + 1000; // Reset interval
+    obstacle.lastDirectionChange = now;
+  }
 }
+
+
 
 function moveJellyfish() {
   jellyfish.forEach(jelly => {
-    // Calculate wobble effect
-    jelly.wobbleOffset += jelly.wobbleFrequency;
+    // Calculate wobble effect with direction
+    jelly.wobbleOffset += jelly.wobbleFrequency * jelly.wobbleDirection;
     const wobbleX = jelly.wobbleAmplitude * Math.sin(jelly.wobbleOffset);
     const wobbleY = jelly.wobbleAmplitude * Math.cos(jelly.wobbleOffset);
 
@@ -242,15 +276,19 @@ function moveJellyfish() {
       jelly.dy *= -1;
     }
 
-    // Change direction randomly
-    if (Date.now() - jelly.lastDirectionChange > jelly.directionChangeInterval) {
-      jelly.dx = 2 + Math.random() * 2;
-      jelly.dy = 2 + Math.random() * 2;
-      jelly.directionChangeInterval = Math.random() * 2000 + 1000; // Reset interval
-      jelly.lastDirectionChange = Date.now();
+    // Change direction more frequently
+    const now = Date.now();
+    if (now - jelly.lastDirectionChange > jelly.directionChangeInterval) {
+      jelly.dx = 0.5 + Math.random(); // New slower random speed
+      jelly.dy = 0.5 + Math.random(); // New slower random speed
+      jelly.wobbleDirection = Math.random() < 0.5 ? 1 : -1; // Randomly change direction
+      jelly.directionChangeInterval = Math.random() * 1000 + 500; // Reset interval
+      jelly.lastDirectionChange = now;
     }
   });
 }
+
+
 
 function gameLoop() {
   if (!state.gameOver || state.flashing) {
