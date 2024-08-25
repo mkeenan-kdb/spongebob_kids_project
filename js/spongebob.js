@@ -12,13 +12,14 @@ const assets = {
 // Game constants
 const middleX = canvas.width / 2;
 const middleY = canvas.height / 2;
-const speed = 15;
+const speed = 10;
 const spongebobSize = 150;
 const numJellyfish = 5; // Number of jellyfish items
+const blackholePullFactor = 0.008; // Gravitational pull factor for the black hole
 
 // Game state variables
 let state = {
-  spongebob: { x: middleX-200, y: middleY + 100 },
+  spongebob: { x: 150, y: canvas.height-150, dx: 0, dy: 0 }, // Add dx and dy to track velocity
   lives: 5,
   score: 0,
   gameOver: false,
@@ -32,8 +33,8 @@ const obstacle = {
   x: middleX - 100,
   y: middleY - 100,
   radius: 50,
-  dx: 5, // Horizontal speed of the obstacle
-  dy: 5  // Vertical speed of the obstacle
+  dx: 1, // Horizontal speed of the obstacle
+  dy: 1  // Vertical speed of the obstacle
 };
 
 const jellyfish = Array.from({ length: numJellyfish }, () => ({
@@ -59,7 +60,7 @@ function resetSpongebobPosition() {
   const ox = obstacle.x;
   const oy = obstacle.y;
 
-  state.spongebob = { x: canvas.width - ox, y: canvas.height - oy };
+  state.spongebob = { x: canvas.width - ox, y: canvas.height - oy, dx: 0, dy: 0 }; // Reset velocity
 }
 
 function drawText(text, x, y, font = '20px Arial', color = 'black') {
@@ -181,10 +182,26 @@ function displayGameOver(callback) {
 function updatePosition() {
   const { spongebob, gameOver, flashing } = state;
   if (!gameOver && !flashing) {
-    if (rightPressed) spongebob.x += speed;
-    if (leftPressed) spongebob.x -= speed;
-    if (upPressed) spongebob.y -= speed;
-    if (downPressed) spongebob.y += speed;
+    if (rightPressed) spongebob.dx = speed;
+    if (leftPressed) spongebob.dx = -speed;
+    if (upPressed) spongebob.dy = -speed;
+    if (downPressed) spongebob.dy = speed;
+
+    // Apply gravitational pull if SpongeBob is near the black hole
+    const dx = spongebob.x + spongebobSize / 2 - obstacle.x;
+    const dy = spongebob.y + spongebobSize / 2 - obstacle.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const pullFactor = blackholePullFactor * (obstacle.radius * 20 - distance); // Stronger pull closer to the black hole
+    spongebob.dx -= pullFactor * (dx / distance);
+    spongebob.dy -= pullFactor * (dy / distance);
+
+    // Update SpongeBob's position based on velocity
+    spongebob.x += spongebob.dx;
+    spongebob.y += spongebob.dy;
+
+    // Reset velocity if no keys are pressed
+    if (!rightPressed && !leftPressed) spongebob.dx = 0;
+    if (!upPressed && !downPressed) spongebob.dy = 0;
 
     // Wrap SpongeBob around the screen
     if (spongebob.x < 0) spongebob.x = canvas.width - spongebobSize;
@@ -214,17 +231,8 @@ function moveJellyfish() {
     const wobbleX = jelly.wobbleAmplitude * Math.sin(jelly.wobbleOffset);
     const wobbleY = jelly.wobbleAmplitude * Math.cos(jelly.wobbleOffset);
 
-    // Move jellyfish
     jelly.x += jelly.dx + wobbleX;
     jelly.y += jelly.dy + wobbleY;
-
-    // Randomly change direction
-    if (Date.now() - jelly.lastDirectionChange > jelly.directionChangeInterval) {
-      jelly.dx = 2 + Math.random() * 2;
-      jelly.dy = 2 + Math.random() * 2;
-      jelly.directionChangeInterval = Math.random() * 2000 + 1000; // Reset interval
-      jelly.lastDirectionChange = Date.now();
-    }
 
     // Bounce the jellyfish off the edges of the canvas
     if (jelly.x < 0 || jelly.x > canvas.width - 50) {
@@ -232,6 +240,14 @@ function moveJellyfish() {
     }
     if (jelly.y < 0 || jelly.y > canvas.height - 75) {
       jelly.dy *= -1;
+    }
+
+    // Change direction randomly
+    if (Date.now() - jelly.lastDirectionChange > jelly.directionChangeInterval) {
+      jelly.dx = 2 + Math.random() * 2;
+      jelly.dy = 2 + Math.random() * 2;
+      jelly.directionChangeInterval = Math.random() * 2000 + 1000; // Reset interval
+      jelly.lastDirectionChange = Date.now();
     }
   });
 }
