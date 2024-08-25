@@ -1,157 +1,124 @@
-// Select the canvas element and get its context
+// Canvas and context setup
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Load the SpongeBob image
-const spongebob = new Image();
-spongebob.src = 'images/spongebobp.png';
-
-// Load the background image
-const background = new Image();
-background.src = 'images/bikini-bottom-background.jpg';
-
-// Define the middle of the canvas
-const middleX = Math.round(canvas.width / 2);
-const middleY = Math.round(canvas.height / 2);
-
-// Initial position and speed for SpongeBob
-let spongebobX = middleX;
-let spongebobY = middleY + 100;
-const speed = 10;
-
-// Set SpongeBob's size
-const spongebobWidth = 150;
-const spongebobHeight = 150;
-
-// Game state variables
-let lives = 5;
-let score = 0;
-let gameOver = false;
-let flashing = false;
-let flashCount = 0;
-let flashInterval = null;
-
-// Reset SpongeBob's position
-function resetSpongebobPosition() {
-  spongebobX = middleX;
-  spongebobY = middleY + 100;
-}
-
-// Display the lives
-function renderLives() {
-  ctx.fillStyle = 'black';
-  ctx.font = '20px Arial';
-  ctx.fillText('Lives: ' + lives, canvas.width - 100, 20);
-}
-
-// Display the score
-function renderScore() {
-  ctx.fillStyle = 'black';
-  ctx.font = '20px Arial';
-  ctx.fillText('Score: ' + score, 10, 20);
-}
-
-// Obstacle setup
-const obstacle = {
-  x: middleX - 100,
-  y: middleY - 100,
-  radius: 50,
-  color: 'red'
+// Asset loading
+const assets = {
+  spongebob: loadImage('images/spongebobp.png'),
+  background: loadImage('images/bikini-bottom-background.jpg')
 };
 
-// Render the obstacle
+// Game constants
+const middleX = canvas.width / 2;
+const middleY = canvas.height / 2;
+const speed = 10;
+const spongebobSize = 150;
+
+// Game state variables
+let state = {
+  spongebob: { x: middleX, y: middleY + 100 },
+  lives: 5,
+  score: 0,
+  gameOver: false,
+  flashing: false,
+  flashCount: 0,
+  flashInterval: null
+};
+
+// Obstacle and item definitions
+const obstacle = { x: middleX - 100, y: middleY - 100, radius: 50, color: 'red' };
+const item = { x: 200, y: 150, width: 30, height: 30, color: 'yellow' };
+
+// Helper functions
+function loadImage(src) {
+  const img = new Image();
+  img.src = src;
+  return img;
+}
+
+function resetSpongebobPosition() {
+  state.spongebob = { x: middleX, y: middleY + 100 };
+}
+
+function drawText(text, x, y, font = '20px Arial', color = 'black') {
+  ctx.fillStyle = color;
+  ctx.font = font;
+  ctx.fillText(text, x, y);
+}
+
+function renderBackground() {
+  ctx.drawImage(assets.background, 0, 0, canvas.width, canvas.height);
+}
+
 function renderObstacle() {
   ctx.beginPath();
-  ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, 2 * Math.PI, false);
+  ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, 2 * Math.PI);
   ctx.fillStyle = obstacle.color;
   ctx.fill();
 }
 
-// Check for collision between SpongeBob and the circular obstacle
+function renderItem() {
+  ctx.fillStyle = item.color;
+  ctx.fillRect(item.x, item.y, item.width, item.height);
+}
+
+function renderSpongebob() {
+  if (!state.flashing || (state.flashing && state.flashCount % 2 === 0)) {
+    ctx.drawImage(assets.spongebob, state.spongebob.x, state.spongebob.y, spongebobSize, spongebobSize);
+  }
+}
+
 function checkCollision() {
-  const dx = spongebobX + spongebobWidth / 2 - obstacle.x;
-  const dy = spongebobY + spongebobHeight / 2 - obstacle.y;
+  const { spongebob, lives } = state;
+  const dx = spongebob.x + spongebobSize / 2 - obstacle.x;
+  const dy = spongebob.y + spongebobSize / 2 - obstacle.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
 
-  if (distance < obstacle.radius + spongebobWidth / 2) {
-    // Collision detected
-    lives--;
-    score -= 5;
-    if (lives > 0) {
+  if (distance < obstacle.radius + spongebobSize / 2) {
+    state.lives = Math.max(0, lives - 1);
+    state.score = Math.max(0, state.score - 5);
+
+    if (state.lives > 0) {
       resetSpongebobPosition();
-      flashSpongebob(() => {
-        flashing = false;
-      });
+      flashSpongebob(() => (state.flashing = false));
     } else {
-      gameOver = true;
+      state.gameOver = true;
       displayGameOver(() => {
         resetSpongebobPosition();
         flashSpongebob(() => {
-          flashing = false;
-          lives = 5;
-          score = 0;
-          gameOver = false;
+          Object.assign(state, { lives: 5, score: 0, gameOver: false, flashing: false });
         });
       });
     }
   }
 }
 
-// Item setup
-const item = {
-  x: 200,
-  y: 150,
-  width: 30,
-  height: 30,
-  color: 'yellow'
-};
-
-// Render the item
-function renderItem() {
-  ctx.fillStyle = item.color;
-  ctx.fillRect(item.x, item.y, item.width, item.height);
-}
-
-// Check for collision between SpongeBob and the item
 function checkItemCollection() {
-  if (spongebobX < item.x + item.width &&
-    spongebobX + spongebobWidth > item.x &&
-    spongebobY < item.y + item.height &&
-    spongebobY + spongebobHeight > item.y) {
-    // Item collected
-    score += 5;
-    // Move item to a new random position
+  const { spongebob } = state;
+  if (
+    spongebob.x < item.x + item.width &&
+    spongebob.x + spongebobSize > item.x &&
+    spongebob.y < item.y + item.height &&
+    spongebob.y + spongebobSize > item.y
+  ) {
+    state.score += 5;
     item.x = Math.random() * (canvas.width - item.width);
     item.y = Math.random() * (canvas.height - item.height);
   }
 }
 
-// Background rendering function
-function renderBackground() {
-  ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
-}
-
-// SpongeBob rendering function
-function renderSpongebob() {
-  if (!flashing || (flashing && flashCount % 2 === 0)) {
-    ctx.drawImage(spongebob, spongebobX, spongebobY, spongebobWidth, spongebobHeight);
-  }
-}
-
-// Flash SpongeBob after collision
 function flashSpongebob(callback) {
-  flashCount = 0;
-  flashing = true;
-  flashInterval = setInterval(() => {
-    flashCount++;
-    if (flashCount >= 6) { // Flash 3 times
-      clearInterval(flashInterval);
+  state.flashCount = 0;
+  state.flashing = true;
+  state.flashInterval = setInterval(() => {
+    state.flashCount++;
+    if (state.flashCount >= 6) { // Flash 3 times
+      clearInterval(state.flashInterval);
       callback();
     }
   }, 200); // Flash every 200ms
 }
 
-// Display the "Game Over!" message with flashing effect
 function displayGameOver(callback) {
   let visible = true;
   const interval = setInterval(() => {
@@ -159,13 +126,11 @@ function displayGameOver(callback) {
     renderBackground();
     renderObstacle();
     renderItem();
-    renderScore();
-    renderLives();
+    drawText(`Score: ${state.score}`, 10, 20);
+    drawText(`Lives: ${state.lives}`, canvas.width - 100, 20);
 
     if (visible) {
-      ctx.fillStyle = 'red';
-      ctx.font = '50px Arial';
-      ctx.fillText('Game Over!', middleX - 150, middleY);
+      drawText('Game Over!', middleX - 150, middleY, '50px Arial', 'red');
     }
     visible = !visible;
   }, 500);
@@ -176,54 +141,38 @@ function displayGameOver(callback) {
   }, 3000); // Show "Game Over!" for 3 seconds
 }
 
-// Handle keyboard inputs
-let rightPressed = false;
-let leftPressed = false;
-let upPressed = false;
-let downPressed = false;
-
-// Update SpongeBob's position and score as he moves
 function updatePosition() {
+  const { spongebob, gameOver, flashing } = state;
   if (!gameOver && !flashing) {
-    if (rightPressed && spongebobX < canvas.width - spongebobWidth) {
-      spongebobX += speed;
-      score++;
-    }
-    if (leftPressed && spongebobX > 0) {
-      spongebobX -= speed;
-      score++;
-    }
-    if (upPressed && spongebobY > 0) {
-      spongebobY -= speed;
-      score++;
-    }
-    if (downPressed && spongebobY < canvas.height - spongebobHeight) {
-      spongebobY += speed;
-      score++;
-    }
+    if (rightPressed && spongebob.x < canvas.width - spongebobSize) spongebob.x += speed;
+    if (leftPressed && spongebob.x > 0) spongebob.x -= speed;
+    if (upPressed && spongebob.y > 0) spongebob.y -= speed;
+    if (downPressed && spongebob.y < canvas.height - spongebobSize) spongebob.y += speed;
   }
 }
 
-// Game loop: Update and render the game
 function gameLoop() {
-  if (!gameOver || flashing) {
+  if (!state.gameOver || state.flashing) {
     updatePosition();
     renderBackground();
     renderSpongebob();
     renderObstacle();
     renderItem();
-    renderScore();
-    renderLives();
+    drawText("Made by MJK, OFSJ, CJSK.",middleX-200, 50);
+    drawText(`Score: ${state.score}`, 10, 20);
+    drawText(`Lives: ${state.lives}`, canvas.width - 100, 20);
     checkCollision();
     checkItemCollection();
   }
   requestAnimationFrame(gameLoop);
 }
 
-// Start the game loop
-gameLoop();
+// Event listeners for key presses
+let rightPressed = false;
+let leftPressed = false;
+let upPressed = false;
+let downPressed = false;
 
-// Keyboard event listeners
 document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') rightPressed = true;
   if (e.key === 'ArrowLeft') leftPressed = true;
@@ -237,3 +186,6 @@ document.addEventListener('keyup', (e) => {
   if (e.key === 'ArrowUp') upPressed = false;
   if (e.key === 'ArrowDown') downPressed = false;
 });
+
+// Start the game
+gameLoop();
