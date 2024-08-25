@@ -15,7 +15,7 @@ const middleY = canvas.height / 2;
 const speed = 10;
 const spongebobSize = 150;
 const numJellyfish = 5; // Number of jellyfish items
-const blackholePullFactor = 0.008; // Gravitational pull factor for the black hole
+const blackholePullFactor = 0.004; // Gravitational pull factor for the black hole
 
 // Game state variables
 let state = {
@@ -191,7 +191,7 @@ function updatePosition() {
     const dx = spongebob.x + spongebobSize / 2 - obstacle.x;
     const dy = spongebob.y + spongebobSize / 2 - obstacle.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    const pullFactor = blackholePullFactor * (obstacle.radius * 20 - distance); // Stronger pull closer to the black hole
+    const pullFactor = blackholePullFactor * (obstacle.radius * 25 - distance); // Stronger pull closer to the black hole
     spongebob.dx -= pullFactor * (dx / distance);
     spongebob.dy -= pullFactor * (dy / distance);
 
