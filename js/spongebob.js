@@ -30,7 +30,6 @@ const obstacle = {
   x: middleX - 100,
   y: middleY - 100,
   radius: 50,
-  color: 'red',
   dx: 1, // Horizontal speed of the obstacle
   dy: 1  // Vertical speed of the obstacle
 };
@@ -67,9 +66,13 @@ function renderBackground() {
 }
 
 function renderObstacle() {
+  const gradient = ctx.createRadialGradient(obstacle.x, obstacle.y, 0, obstacle.x, obstacle.y, obstacle.radius);
+  gradient.addColorStop(0, 'black'); // Center of the gradient (black hole)
+  gradient.addColorStop(1, 'transparent'); // Outer edge of the gradient
+
   ctx.beginPath();
   ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, 2 * Math.PI);
-  ctx.fillStyle = obstacle.color;
+  ctx.fillStyle = gradient;
   ctx.fill();
 }
 
@@ -207,6 +210,7 @@ function gameLoop() {
     renderSpongebob();
     renderObstacle();
     renderItem();
+    drawText("Made by MJK, OFSJ, CJSK.",middleX-150, 50);
     drawText(`Score: ${state.score}`, 10, 20);
     drawText(`Lives: ${state.lives}`, canvas.width - 100, 20);
     checkCollision();
