@@ -5,18 +5,20 @@ const ctx = canvas.getContext('2d');
 // Asset loading
 const assets = {
   spongebob: loadImage('images/spongebobp.png'),
-  background: loadImage('images/bikini-bottom-background.jpg')
+  background: loadImage('images/bikini-bottom-background.jpg'),
+  jellyfish: loadImage('images/jellyfishBig.png') // Load jellyfish image
 };
 
 // Game constants
 const middleX = canvas.width / 2;
 const middleY = canvas.height / 2;
-const speed = 10;
+const speed = 15;
 const spongebobSize = 150;
+const numJellyfish = 5; // Number of jellyfish items
 
 // Game state variables
 let state = {
-  spongebob: { x: middleX, y: middleY + 100 },
+  spongebob: { x: middleX-200, y: middleY + 100 },
   lives: 5,
   score: 0,
   gameOver: false,
@@ -30,19 +32,21 @@ const obstacle = {
   x: middleX - 100,
   y: middleY - 100,
   radius: 50,
-  dx: 1, // Horizontal speed of the obstacle
-  dy: 1  // Vertical speed of the obstacle
+  dx: 5, // Horizontal speed of the obstacle
+  dy: 5  // Vertical speed of the obstacle
 };
 
-const item = {
-  x: 200,
-  y: 150,
-  width: 30,
-  height: 30,
-  color: 'yellow',
-  dx: 1, // Horizontal speed of the item
-  dy: 1  // Vertical speed of the item
-};
+const jellyfish = Array.from({ length: numJellyfish }, () => ({
+  x: Math.random() * (canvas.width - 50),
+  y: Math.random() * (canvas.height - 75),
+  dx: 2 + Math.random() * 2, // Initial speed with random variation
+  dy: 2 + Math.random() * 2, // Initial speed with random variation
+  wobbleAmplitude: 10, // Amplitude of the wobble effect
+  wobbleFrequency: 0.1, // Frequency of the wobble effect
+  wobbleOffset: Math.random() * 2 * Math.PI, // Random initial offset
+  directionChangeInterval: Math.random() * 2000 + 1000, // Random interval for direction change
+  lastDirectionChange: Date.now() // Time of the last direction change
+}));
 
 // Helper functions
 function loadImage(src) {
@@ -52,7 +56,10 @@ function loadImage(src) {
 }
 
 function resetSpongebobPosition() {
-  state.spongebob = { x: middleX, y: middleY + 100 };
+  const ox = obstacle.x;
+  const oy = obstacle.y;
+
+  state.spongebob = { x: canvas.width - ox, y: canvas.height - oy };
 }
 
 function drawText(text, x, y, font = '20px Arial', color = 'black') {
@@ -69,16 +76,16 @@ function renderObstacle() {
   const gradient = ctx.createRadialGradient(obstacle.x, obstacle.y, 0, obstacle.x, obstacle.y, obstacle.radius);
   gradient.addColorStop(0, 'black'); // Center of the gradient (black hole)
   gradient.addColorStop(1, 'transparent'); // Outer edge of the gradient
-
   ctx.beginPath();
   ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, 2 * Math.PI);
   ctx.fillStyle = gradient;
   ctx.fill();
 }
 
-function renderItem() {
-  ctx.fillStyle = item.color;
-  ctx.fillRect(item.x, item.y, item.width, item.height);
+function renderJellyfish() {
+  jellyfish.forEach(jelly => {
+    ctx.drawImage(assets.jellyfish, jelly.x, jelly.y, 50, 75); // Draw each jellyfish image
+  });
 }
 
 function renderSpongebob() {
@@ -111,18 +118,30 @@ function checkCollision() {
   }
 }
 
-function checkItemCollection() {
+function checkJellyfishCollection() {
   const { spongebob } = state;
-  if (
-    spongebob.x < item.x + item.width &&
-    spongebob.x + spongebobSize > item.x &&
-    spongebob.y < item.y + item.height &&
-    spongebob.y + spongebobSize > item.y
-  ) {
-    state.score += 5;
-    item.x = Math.random() * (canvas.width - item.width);
-    item.y = Math.random() * (canvas.height - item.height);
-  }
+  jellyfish.forEach((jelly, index) => {
+    if (
+      spongebob.x < jelly.x + 50 &&
+      spongebob.x + spongebobSize > jelly.x &&
+      spongebob.y < jelly.y + 75 &&
+      spongebob.y + spongebobSize > jelly.y
+    ) {
+      state.score += 5;
+      // Reset collected jellyfish to a new random position
+      jellyfish[index] = {
+        x: Math.random() * (canvas.width - 50),
+        y: Math.random() * (canvas.height - 75),
+        dx: 2 + Math.random() * 2,
+        dy: 2 + Math.random() * 2,
+        wobbleAmplitude: 10,
+        wobbleFrequency: 0.1,
+        wobbleOffset: Math.random() * 2 * Math.PI,
+        directionChangeInterval: Math.random() * 2000 + 1000,
+        lastDirectionChange: Date.now()
+      };
+    }
+  });
 }
 
 function flashSpongebob(callback) {
@@ -134,7 +153,7 @@ function flashSpongebob(callback) {
       clearInterval(state.flashInterval);
       callback();
     }
-  }, 200);
+  }, 100);
 }
 
 function displayGameOver(callback) {
@@ -143,7 +162,7 @@ function displayGameOver(callback) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     renderBackground();
     renderObstacle();
-    renderItem();
+    renderJellyfish();
     drawText(`Score: ${state.score}`, 10, 20);
     drawText(`Lives: ${state.lives}`, canvas.width - 100, 20);
 
@@ -188,33 +207,49 @@ function moveObstacle() {
   }
 }
 
-function moveItem() {
-  item.x += item.dx;
-  item.y += item.dy;
+function moveJellyfish() {
+  jellyfish.forEach(jelly => {
+    // Calculate wobble effect
+    jelly.wobbleOffset += jelly.wobbleFrequency;
+    const wobbleX = jelly.wobbleAmplitude * Math.sin(jelly.wobbleOffset);
+    const wobbleY = jelly.wobbleAmplitude * Math.cos(jelly.wobbleOffset);
 
-  // Bounce the item off the edges of the canvas
-  if (item.x < 0 || item.x > canvas.width - item.width) {
-    item.dx *= -1;
-  }
-  if (item.y < 0 || item.y > canvas.height - item.height) {
-    item.dy *= -1;
-  }
+    // Move jellyfish
+    jelly.x += jelly.dx + wobbleX;
+    jelly.y += jelly.dy + wobbleY;
+
+    // Randomly change direction
+    if (Date.now() - jelly.lastDirectionChange > jelly.directionChangeInterval) {
+      jelly.dx = 2 + Math.random() * 2;
+      jelly.dy = 2 + Math.random() * 2;
+      jelly.directionChangeInterval = Math.random() * 2000 + 1000; // Reset interval
+      jelly.lastDirectionChange = Date.now();
+    }
+
+    // Bounce the jellyfish off the edges of the canvas
+    if (jelly.x < 0 || jelly.x > canvas.width - 50) {
+      jelly.dx *= -1;
+    }
+    if (jelly.y < 0 || jelly.y > canvas.height - 75) {
+      jelly.dy *= -1;
+    }
+  });
 }
 
 function gameLoop() {
   if (!state.gameOver || state.flashing) {
     updatePosition();
     moveObstacle();
-    moveItem();
+    moveJellyfish();
     renderBackground();
     renderSpongebob();
     renderObstacle();
-    renderItem();
-    drawText("Made by MJK, OFSJ, CJSK.",middleX-150, 50);
+    renderJellyfish();
+    drawText("Made by MJK, OFSJ, CJSK.", middleX - 150, 50);
     drawText(`Score: ${state.score}`, 10, 20);
     drawText(`Lives: ${state.lives}`, canvas.width - 100, 20);
     checkCollision();
-    checkItemCollection();
+    checkJellyfishCollection();
   }
   requestAnimationFrame(gameLoop);
 }
