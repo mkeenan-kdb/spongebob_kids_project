@@ -12,9 +12,9 @@ const assets = {
 // Game constants
 const middleX = canvas.width / 2;
 const middleY = canvas.height / 2;
-const speed = 8;
+const speed = 10;
 const spongebobSize = 150;
-const numJellyfish = 5; // Number of jellyfish items
+const numJellyfish = 50; // Number of jellyfish items
 const blackholePullFactor = 0.004; // Gravitational pull factor for the black hole
 
 // Game state variables
@@ -197,6 +197,14 @@ function updatePosition() {
     if (upPressed) spongebob.dy = -speed;
     if (downPressed) spongebob.dy = speed;
 
+    // Move SpongeBob based on touch input
+    if (touchX !== null && touchY !== null) {
+      const deltaX = touchX - (spongebob.x + spongebobSize / 2);
+      const deltaY = touchY - (spongebob.y + spongebobSize / 2);
+      spongebob.dx = deltaX * 0.1; // Adjust speed scaling as needed
+      spongebob.dy = deltaY * 0.1; // Adjust speed scaling as needed
+    }
+
     // Apply gravitational pull if SpongeBob is near the black hole
     const dx = spongebob.x + spongebobSize / 2 - obstacle.x;
     const dy = spongebob.y + spongebobSize / 2 - obstacle.y;
@@ -209,9 +217,9 @@ function updatePosition() {
     spongebob.x += spongebob.dx;
     spongebob.y += spongebob.dy;
 
-    // Reset velocity if no keys are pressed
-    if (!rightPressed && !leftPressed) spongebob.dx = 0;
-    if (!upPressed && !downPressed) spongebob.dy = 0;
+    // Reset velocity if no keys or touch inputs are active
+    if (!rightPressed && !leftPressed && touchX === null) spongebob.dx = 0;
+    if (!upPressed && !downPressed && touchY === null) spongebob.dy = 0;
 
     // Wrap SpongeBob around the screen
     if (spongebob.x < 0) spongebob.x = canvas.width - spongebobSize;
@@ -220,6 +228,7 @@ function updatePosition() {
     if (spongebob.y > canvas.height - spongebobSize) spongebob.y = 0;
   }
 }
+
 
 function moveObstacle() {
   const now = Date.now();
@@ -297,10 +306,10 @@ function gameLoop() {
       renderObstacle();
       renderJellyfish();
       drawText('Paused', middleX - 80, middleY, '50px Arial', 'red');
-      drawText("Made by MJK, OFSJ, CJSK.", middleX - 150, 50);
+      drawText("Made by MJK, OFSK, CJSK.", middleX - 150, 50);
       drawText(`Score: ${state.score}`, 10, 20);
       drawText(`Lives: ${state.lives}`, canvas.width - 100, 20);
-    } else {
+    }else{
       updatePosition();
       moveObstacle();
       moveJellyfish();
@@ -324,6 +333,8 @@ let rightPressed = false;
 let leftPressed = false;
 let upPressed = false;
 let downPressed = false;
+let touchX = null;
+let touchY = null;
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') rightPressed = true;
@@ -342,6 +353,38 @@ document.addEventListener('keyup', (e) => {
   if (e.key === 'ArrowDown') downPressed = false;
 });
 
+function getTouchPosition(touch) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (touch.clientX - rect.left) * (canvas.width / rect.width),
+    y: (touch.clientY - rect.top) * (canvas.height / rect.height)
+  };
+}
+
+canvas.addEventListener('touchstart', (e) => {
+  const touch = e.touches[0];
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+});
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  const deltaX = touch.clientX - touchStartX;
+  const deltaY = touch.clientY - touchStartY;
+
+  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+  if (distance > 0) {
+    state.spongebob.dx = (deltaX / distance) * speed;
+    state.spongebob.dy = (deltaY / distance) * speed;
+  }
+});
+
+canvas.addEventListener('touchend', (e) => {
+  state.spongebob.dx = 0;
+  state.spongebob.dy = 0;
+});
 
 // Start the game
 gameLoop();
